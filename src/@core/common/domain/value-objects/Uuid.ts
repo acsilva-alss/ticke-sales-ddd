@@ -1,16 +1,19 @@
-import { validate as uuidValidate } from 'uuid';
+import { validate as uuidValidate, v4 as uuidv4 } from 'uuid';
 import { ValueObject } from './ValueObject';
-import crypto from 'crypto';
 
 export class Uuid extends ValueObject<string> {
   constructor(id?: string) {
-    super(id || crypto.randomUUID());
+    super(id || uuidv4());
     this.validate();
   }
 
   private validate() {
-    const isValid = uuidValidate(this.value);
-    if (!isValid) throw new InvalidUuidError(this.value);
+    try {
+      const isValid = uuidValidate(this.value);
+      if (!isValid) throw new InvalidUuidError(this.value);
+    } catch (e) {
+      console.log(e);
+    }
   }
 }
 

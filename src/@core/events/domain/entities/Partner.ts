@@ -1,4 +1,4 @@
-import { AggregateRoot, Uuid } from 'src/@core/common';
+import { AggregateRoot, Name, Uuid } from 'src/@core/common';
 import { Event } from './Event';
 
 export class PartnerId extends Uuid {}
@@ -11,12 +11,12 @@ export type InitEventCommand = {
 
 export type PartnerConstructorProps = {
   id?: PartnerId | string;
-  name: string;
+  name: Name;
 };
 
 export class Partner extends AggregateRoot {
   id: PartnerId;
-  name: string;
+  name: Name;
 
   constructor(props: PartnerConstructorProps) {
     super();
@@ -29,7 +29,7 @@ export class Partner extends AggregateRoot {
 
   static create(command: { name: string }) {
     return new Partner({
-      name: command.name,
+      name: new Name(command.name),
     });
   }
 
@@ -41,7 +41,7 @@ export class Partner extends AggregateRoot {
   }
 
   public changeName(name: string) {
-    this.name = name;
+    this.name = new Name(name);
   }
 
   public toJSON() {

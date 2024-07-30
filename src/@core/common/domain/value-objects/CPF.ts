@@ -7,7 +7,7 @@ export class CPF extends ValueObject<string> {
 
   constructor(cpf: string) {
     super(cpf);
-    if (!this.isValid(cpf)) throw new Error('ERROR! Invalid CPF');
+    if (!this.isValid(this.value)) throw new Error('ERROR! Invalid CPF');
   }
 
   private cleanCpf(cpfToBeValidated: string) {
@@ -32,6 +32,7 @@ export class CPF extends ValueObject<string> {
   }
 
   private isValid(cpfToBeValidated: string) {
+    console.log(cpfToBeValidated);
     if (!cpfToBeValidated) return false;
     const cpfFormatted = this.cleanCpf(cpfToBeValidated);
     if (this.isInvalidLength(cpfFormatted)) return false;

@@ -1,4 +1,11 @@
-import { AggregateRoot, Uuid } from 'src/@core/common';
+import {
+  AggregateRoot,
+  AnyCollection,
+  ICollection,
+  MyCollectionFactory,
+  Name,
+  Uuid,
+} from 'src/@core/common';
 import { PartnerId } from './Partner';
 import { Section, SectionId } from './Section';
 import { SpotId } from './Spot';
@@ -21,26 +28,25 @@ export type AddSectionCommand = {
 
 export type EventConstructorProps = {
   id?: EventId | string;
-  name: string;
+  name: Name;
   description: string | null;
   date: Date;
   isPublished: boolean;
   totalSpots: number;
   totalSpotsReserved: number;
   partnerId: PartnerId | string;
-  sections?: Set<Section>;
 };
 
 export class Event extends AggregateRoot {
   id: EventId;
-  name: string;
+  name: Name;
   description: string | null;
   date: Date;
   isPublished: boolean;
   totalSpots: number;
   totalSpotsReserved: number;
   partnerId: PartnerId;
-  sections: Set<Section>;
+  private _sections: ICollection<Section>;
 
   constructor(props: EventConstructorProps) {
     super();
@@ -59,12 +65,13 @@ export class Event extends AggregateRoot {
       props.partnerId instanceof PartnerId
         ? props.partnerId
         : new PartnerId(props.partnerId);
-    this.sections = props.sections ?? new Set<Section>();
+    this._sections = MyCollectionFactory.create<Section>(this);
   }
 
   static create(command: CreateEventCommand) {
     return new Event({
       ...command,
+      name: new Name(command.name),
       description: command.description ?? null,
       isPublished: false,
       totalSpots: 0,
@@ -73,7 +80,7 @@ export class Event extends AggregateRoot {
   }
 
   public changeName(name: string) {
-    this.name = name;
+    this.name = new Name(name);
   }
 
   public changeDescription(description: string | null) {
@@ -86,7 +93,7 @@ export class Event extends AggregateRoot {
 
   public publishAll() {
     this.publish();
-    this.sections.forEach((section) => section.publishAll());
+    this._sections.forEach((section) => section.publishAll());
   }
 
   public publish() {
@@ -95,7 +102,7 @@ export class Event extends AggregateRoot {
 
   public unPublishAll() {
     this.unPublish();
-    this.sections.forEach((section) => section.unPublishAll());
+    this._sections.forEach((section) => section.unPublishAll());
   }
 
   public unPublish() {
@@ -104,7 +111,7 @@ export class Event extends AggregateRoot {
 
   public addSection(command: AddSectionCommand) {
     const section = Section.create(command);
-    this.sections.add(section);
+    this._sections.add(section);
     this.totalSpots += section.totalSpots;
   }
 
@@ -113,7 +120,7 @@ export class Event extends AggregateRoot {
     name?: string;
     description?: string | null;
   }) {
-    const section = [...this.sections].find((section) =>
+    const section = [...this._sections].find((section) =>
       section.id.equals(command.sectionId),
     );
     if (!section) {
@@ -128,7 +135,7 @@ export class Event extends AggregateRoot {
     spotId: SpotId;
     location: string;
   }) {
-    const section = [...this.sections].find((section) =>
+    const section = [...this._sections].find((section) =>
       section.id.equals(command.sectionId),
     );
     if (!section) {
@@ -142,7 +149,9 @@ export class Event extends AggregateRoot {
       return false;
     }
 
-    const section = [...this.sections].find((s) => s.id.equals(data.sectionId));
+    const section = [...this._sections].find((s) =>
+      s.id.equals(data.sectionId),
+    );
     if (!section) {
       throw new Error('Section not found');
     }
@@ -151,7 +160,7 @@ export class Event extends AggregateRoot {
   }
 
   public markSpotAsReserved(command: { sectionId: SectionId; spotId: SpotId }) {
-    const section = [...this.sections].find((s) =>
+    const section = [...this._sections].find((s) =>
       s.id.equals(command.sectionId),
     );
 
@@ -160,6 +169,18 @@ export class Event extends AggregateRoot {
     }
 
     section.markSpotAsReserved(command.spotId);
+  }
+
+  public findSection(sectionId: SectionId) {
+    return this._sections.find((s) => s.id.equals(sectionId));
+  }
+
+  get sections(): ICollection<Section> {
+    return this._sections as ICollection<Section>;
+  }
+
+  set sections(sections: AnyCollection<Section>) {
+    this._sections = MyCollectionFactory.createFrom<Section>(sections);
   }
 
   public toJSON() {
@@ -172,7 +193,7 @@ export class Event extends AggregateRoot {
       totalSpots: this.totalSpots,
       totalSpotsReserved: this.totalSpotsReserved,
       partnerId: this.partnerId.value,
-      sections: [...this.sections].map((section) => section.toJSON()),
+      sections: [...this._sections].map((section) => section.toJSON()),
     };
   }
 }

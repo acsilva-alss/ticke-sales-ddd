@@ -1,4 +1,11 @@
-import { Entity, Uuid } from 'src/@core/common';
+import {
+  AnyCollection,
+  Entity,
+  ICollection,
+  MyCollectionFactory,
+  Name,
+  Uuid,
+} from 'src/@core/common';
 import { Spot, SpotId } from './Spot';
 
 export class SectionId extends Uuid {}
@@ -12,24 +19,23 @@ export type SectionCreateCommand = {
 
 export type SectionConstructorProps = {
   id?: SectionId | string;
-  name: string;
+  name: Name;
   description: string | null;
   isPublished: boolean;
   totalSpots: number;
   totalSpotsReserved: number;
   price: number;
-  spots?: Set<Spot>;
 };
 
 export class Section extends Entity {
   id: SectionId;
-  name: string;
+  name: Name;
   description: string | null;
   isPublished: boolean;
   totalSpots: number;
   totalSpotsReserved: number;
   price: number;
-  spots: Set<Spot>;
+  private _spots: ICollection<Spot>;
 
   constructor(props: SectionConstructorProps) {
     super();
@@ -43,12 +49,13 @@ export class Section extends Entity {
     this.totalSpots = props.totalSpots;
     this.totalSpotsReserved = props.totalSpotsReserved;
     this.price = props.price;
-    this.spots = props.spots ?? new Set<Spot>();
+    this._spots = MyCollectionFactory.create<Spot>(this);
   }
 
   static create(command: SectionCreateCommand) {
     const section = new Section({
       ...command,
+      name: new Name(command.name),
       description: command.description ?? null,
       isPublished: false,
       totalSpotsReserved: 0,
@@ -60,12 +67,12 @@ export class Section extends Entity {
 
   private initSpots() {
     for (let i = 0; i < this.totalSpots; i++) {
-      this.spots.add(Spot.create());
+      this._spots.add(Spot.create());
     }
   }
 
   public changeName(name: string) {
-    this.name = name;
+    this.name = new Name(name);
   }
 
   public changeDescription(description: string | null) {
@@ -77,7 +84,9 @@ export class Section extends Entity {
   }
 
   public changeLocation(command: { spotId: SpotId; location: string }) {
-    const spot = [...this.spots].find((spot) => spot.id.equals(command.spotId));
+    const spot = [...this._spots].find((spot) =>
+      spot.id.equals(command.spotId),
+    );
     if (!spot) {
       throw new Error('Spot not found');
     }
@@ -86,12 +95,12 @@ export class Section extends Entity {
 
   public publishAll() {
     this.publish();
-    this.spots.forEach((spot) => spot.publish());
+    this._spots.forEach((spot) => spot.publish());
   }
 
   public unPublishAll() {
     this.unPublish();
-    this.spots.forEach((spot) => spot.unPublish());
+    this._spots.forEach((spot) => spot.unPublish());
   }
 
   public publish() {
@@ -107,7 +116,7 @@ export class Section extends Entity {
       return false;
     }
 
-    const spot = [...this.spots].find((spot) => spot.id.equals(spotId));
+    const spot = [...this._spots].find((spot) => spot.id.equals(spotId));
 
     if (!spot) {
       throw new Error('Spot not found');
@@ -125,7 +134,7 @@ export class Section extends Entity {
   }
 
   public markSpotAsReserved(spotId: SpotId) {
-    const spot = [...this.spots].find((spot) => spot.id.equals(spotId));
+    const spot = [...this._spots].find((spot) => spot.id.equals(spotId));
     if (!spot) {
       throw new Error('Spot not found');
     }
@@ -133,6 +142,14 @@ export class Section extends Entity {
       throw new Error('Spot already reserved');
     }
     spot.markAsReserved();
+  }
+
+  get spots(): ICollection<Spot> {
+    return this._spots as ICollection<Spot>;
+  }
+
+  set spots(_spots: AnyCollection<Spot>) {
+    this._spots = MyCollectionFactory.createFrom<Spot>(_spots);
   }
 
   public toJSON() {
@@ -144,7 +161,7 @@ export class Section extends Entity {
       totalSpots: this.totalSpots,
       totalSpotsReserved: this.totalSpotsReserved,
       price: this.price,
-      spots: [...this.spots].map((spot) => spot.toJSON()),
+      spots: [...this._spots].map((spot) => spot.toJSON()),
     };
   }
 }
